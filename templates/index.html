@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>AI ATS Dashboard</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: system-ui;
+    background: #0b0f1a;
+    color: #e5e7eb;
+}
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+    padding: 30px;
+}
+
+.header {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.sub {
+    color: #94a3b8;
+    margin-bottom: 20px;
+}
+
+/* layout */
+.grid {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 16px;
+}
+
+@media(max-width: 900px){
+    .grid { grid-template-columns: 1fr; }
+}
+
+.card {
+    background: #111827;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 16px;
+}
+
+/* inputs */
+textarea {
+    width: 100%;
+    height: 160px;
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+input[type=file] {
+    margin-top: 10px;
+}
+
+button {
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: #3b82f6;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* result */
+.score {
+    font-size: 42px;
+    font-weight: 800;
+}
+
+.badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    margin-top: 6px;
+}
+
+.Hire { background:#16a34a33; color:#22c55e; }
+.Maybe { background:#f59e0b33; color:#f59e0b; }
+.No { background:#ef444433; color:#ef4444; }
+
+/* history */
+.history-item {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 14px;
+}
+
+a {
+    color: #3b82f6;
+    text-decoration: none;
+}
+
+.small {
+    color: #94a3b8;
+    font-size: 12px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">AI ATS Dashboard</div>
+<div class="sub">Upload resumes → AI evaluates → track candidates like a real ATS</div>
+
+<div class="grid">
+
+<!-- LEFT PANEL -->
+<div class="card">
+
+    <input type="file" id="resume">
+
+    <textarea id="job" placeholder="Paste job description..."></textarea>
+
+    <button onclick="analyze()">Analyze Candidate</button>
+
+    <h3 style="margin-top:20px;">History</h3>
+    <div id="history"></div>
+
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="card" id="output">
+Waiting for analysis...
+</div>
+
+</div>
+</div>
+
+<script>
+
+async function analyze(){
+
+    let form = new FormData();
+    form.append("resume", document.getElementById("resume").files[0]);
+    form.append("job", document.getElementById("job").value);
+
+    document.getElementById("output").innerHTML = "Analyzing...";
+
+    let res = await fetch("/analyze", { method:"POST", body: form });
+    let data = await res.json();
+
+    if(data.error){
+        document.getElementById("output").innerHTML = data.error;
+        return;
+    }
+
+    document.getElementById("output").innerHTML = `
+        <div class="score">${data.match_score}%</div>
+        <div class="badge ${data.recommendation}">${data.recommendation}</div>
+
+        <h3>Summary</h3>
+        <p>${data.summary}</p>
+
+        <h3>Strengths</h3>
+        <ul>${(data.strengths||[]).map(i=>`<li>${i}</li>`).join("")}</ul>
+
+        <h3>Missing Skills</h3>
+        <ul>${(data.missing_skills||[]).map(i=>`<li>${i}</li>`).join("")}</ul>
+    `;
+
+    loadHistory();
+}
+
+
+async function loadHistory(){
+
+    let res = await fetch("/history");
+    let data = await res.json();
+
+    document.getElementById("history").innerHTML =
+        data.map(h => `
+            <div class="history-item">
+                <b>${h.name}</b><br>
+                ${h.score}% — ${h.recommendation}<br>
+                <span class="small">${h.summary}</span><br>
+                <a href="${h.file_url}" target="_blank">View Resume →</a>
+            </div>
+        `).join("");
+}
+
+loadHistory();
+
+</script>
+
+</body>
+</html>
